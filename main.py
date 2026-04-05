@@ -1,5 +1,4 @@
 import os
-import sys
 import subprocess
 from fastapi import FastAPI
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -7,31 +6,24 @@ from discord_webhook import DiscordWebhook
 from app.scraper import scrape_websites
 from app.models import Article, engine, Base, SessionLocal
 from app.article_html import save_article_html  # HTML生成関数
+from contextlib import asynccontextmanager
 import uvicorn
 
 # ------------------------------
-# sys.pathに app を追加
+# パス設定
 # ------------------------------
-sys.path.append(os.path.join(os.path.dirname(__file__), "app"))
+DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/1490044762789777639/d--WHejO5pXv9gqF9rHkddPNa_Ck9N6WYLeP60RqVCrfkfSj8RpPdrxffwe41B-n7Azc"  # 自分のWebhookに変更
+AMAZON_ASSOCIATE_LINK = "https://amzn.to/4c1Yyas"
+GIT_REPO_PATH = r"E:\ai-deals-site\.git"
+CLOUDFLARE_PAGES_URL = "https://ai-deals-site.pages.dev"
+ARTICLES_PATH = os.path.join(os.path.dirname(__file__), "articles")
+
+os.makedirs(ARTICLES_PATH, exist_ok=True)
 
 # ------------------------------
 # DB初期化
 # ------------------------------
 Base.metadata.create_all(bind=engine)
-
-# ------------------------------
-# FastAPIアプリ
-# ------------------------------
-app = FastAPI()
-
-# ------------------------------
-# 設定
-# ------------------------------
-DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/1490044762789777639/d--WHejO5pXv9gqF9rHkddPNa_Ck9N6WYLeP60RqVCrfkfSj8RpPdrxffwe41B-n7Azc"  # 自分のWebhookに変更
-AMAZON_ASSOCIATE_LINK = "https://amzn.to/4c1Yyas"
-GIT_REPO_PATH = r"E:\ai-deals-site\.git"
-CLOUDFLARE_PAGES_URL = "https://ai-deals-site.pages.dev/"
-ARTICLES_PATH = os.path.join(os.path.dirname(__file__), "articles")
 
 # ------------------------------
 # スケジューラ
@@ -46,7 +38,7 @@ def notify_discord(title: str, url: str):
     webhook = DiscordWebhook(url=DISCORD_WEBHOOK_URL, content=content)
     response = webhook.execute()
     if response.status_code != 204:
-        print(f"Discord通知に失敗しました: {response.status_code}, {response.content}")
+        print("Discord通知に失敗しました:", response.content)
 
 # ------------------------------
 # DBに記事保存
@@ -77,11 +69,8 @@ def scheduled_scrape():
         article_filename = f"{db_article.id}.html"
         article_path = os.path.join(ARTICLES_PATH, article_filename)
         save_article_html(
-            article_title=db_article.title,
-            article_content=db_article.content,
-            article_path=article_path,
-            affiliate_link=AMAZON_ASSOCIATE_LINK,
-            images=article.get("images", [])
+            article_id=db_article.id,
+            html_content=f"<h1>{db_article.title}</h1><p>{db_article.content}</p><a href='{AMAZON_ASSOCIATE_LINK}'>購入リンク</a>"
         )
         print("HTML保存:", article_path)
 
@@ -93,30 +82,35 @@ def scheduled_scrape():
 
         # Git push
         try:
-            subprocess.run(["git", "-C", os.path.dirname(GIT_REPO_PATH), "add", "articles/"], check=True)
+            subprocess.run(["git", "-C", os.path.dirname(GIT_REPO_PATH), "add", "."], check=True)
             subprocess.run(["git", "-C", os.path.dirname(GIT_REPO_PATH), "commit", "-m", f"Add article {db_article.id}"], check=True)
             subprocess.run(["git", "-C", os.path.dirname(GIT_REPO_PATH), "push"], check=True)
         except subprocess.CalledProcessError as e:
             print(f"Git push エラー: {e}")
 
 # ------------------------------
-# FastAPI起動時にスケジューラ開始
+# Lifespan イベント
 # ------------------------------
-@app.on_event("startup")
-def startup_event():
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # 起動時
     scheduler.add_job(scheduled_scrape, "interval", minutes=60)
     scheduler.start()
+    print("Scheduler started")
+    yield
+    # 終了時
+    scheduler.shutdown()
+    print("Scheduler stopped")
 
 # ------------------------------
-# ルート
+# FastAPIアプリ
 # ------------------------------
+app = FastAPI(lifespan=lifespan)
+
 @app.get("/")
 def read_root():
     return {"message": "AI Deals Site is running!"}
 
-# ------------------------------
-# 手動でスクレイプ
-# ------------------------------
 @app.post("/scrape/")
 def scrape_now():
     try:
@@ -129,4 +123,5 @@ def scrape_now():
 # Uvicorn起動
 # ------------------------------
 if __name__ == "__main__":
-    uvicorn.run(app, host="127.0.0.1", port=8001, reload=False)
+    # 推奨: ターミナルからは uvicorn main:app --reload
+    uvicorn.run("main:app", host="127.0.0.1", port=8001, reload=True)

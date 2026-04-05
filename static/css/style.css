@@ -1,0 +1,40 @@
+body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+    background: #f5f5f7;
+    color: #111;
+    overflow-x: hidden;
+}
+
+.article-container {
+    max-width: 1000px;
+    margin: auto;
+    padding: 50px 20px;
+}
+
+.hero-image img {
+    width: 100%;
+    height: auto;
+    border-radius: 16px;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+    transform: translateY(20px);
+    opacity: 0;
+    transition: all 1s ease-out;
+}
+
+.content {
+    padding: 30px 0;
+}
+
+.buy-button {
+    display: inline-block;
+    padding: 15px 30px;
+    background: #0071e3;
+    color: white;
+    text-decoration: none;
+    border-radius: 12px;
+    transition: transform 0.3s ease;
+}
+.buy-button:hover {
+    transform: scale(1.05);
+}
