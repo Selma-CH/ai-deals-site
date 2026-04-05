@@ -23,7 +23,7 @@ app = FastAPI()
 # ------------------------------
 DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/xxxxx/xxxxxxxx"
 AMAZON_ASSOCIATE_LINK = "https://amzn.to/4duD1JY"
-GIT_REPO_PATH = r"E:\ai-deals-site\.git" 
+GIT_REPO_PATH = r"E:\ai-deals-site\.git"  # ←現在のリポジトリパスに合わせる
 CLOUDFLARE_PAGES_URL = "https://1497f113.ai-deals-site.pages.dev"
 ARTICLES_PATH = os.path.join(os.path.dirname(__file__), "app", "articles")
 
