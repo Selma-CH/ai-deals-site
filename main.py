@@ -23,7 +23,8 @@ scheduler = BackgroundScheduler()
 
 
 def notify_discord(title: str, filename: str):
-    url = f"{CLOUDFLARE_PAGES_URL}/{filename}"
+    article_id = filename.replace(".html", "")
+    url = f"{CLOUDFLARE_PAGES_URL}/{article_id}"
     content = f"🆕 新しい記事が公開されました！\n**{title}**\n{url}"
 
     webhook = DiscordWebhook(url=DISCORD_WEBHOOK_URL, content=content)
