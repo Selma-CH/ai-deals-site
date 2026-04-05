@@ -5,20 +5,17 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from discord_webhook import DiscordWebhook
 from app.scraper import scrape_websites
 from app.models import Article, engine, Base, SessionLocal
-from app.article_html import save_article_html  # HTML生成関数
-from contextlib import asynccontextmanager
+from app.article_generator import generate_article_html
 import uvicorn
 
 # ------------------------------
-# パス設定
+# 設定
 # ------------------------------
-DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/1490044762789777639/d--WHejO5pXv9gqF9rHkddPNa_Ck9N6WYLeP60RqVCrfkfSj8RpPdrxffwe41B-n7Azc"  # 自分のWebhookに変更
+DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/1490044762789777639/d--WHejO5pXv9gqF9rHkddPNa_Ck9N6WYLeP60RqVCrfkfSj8RpPdrxffwe41B-n7Azc"
 AMAZON_ASSOCIATE_LINK = "https://amzn.to/4c1Yyas"
 GIT_REPO_PATH = r"E:\ai-deals-site\.git"
-CLOUDFLARE_PAGES_URL = "https://ai-deals-site.pages.dev"
+CLOUDFLARE_PAGES_URL = "https://ai-deals-site.pages.dev/"
 ARTICLES_PATH = os.path.join(os.path.dirname(__file__), "articles")
-
-os.makedirs(ARTICLES_PATH, exist_ok=True)
 
 # ------------------------------
 # DB初期化
@@ -26,8 +23,9 @@ os.makedirs(ARTICLES_PATH, exist_ok=True)
 Base.metadata.create_all(bind=engine)
 
 # ------------------------------
-# スケジューラ
+# FastAPIアプリ
 # ------------------------------
+app = FastAPI()
 scheduler = BackgroundScheduler()
 
 # ------------------------------
@@ -38,7 +36,7 @@ def notify_discord(title: str, url: str):
     webhook = DiscordWebhook(url=DISCORD_WEBHOOK_URL, content=content)
     response = webhook.execute()
     if response.status_code != 204:
-        print("Discord通知に失敗しました:", response.content)
+        print(f"Discord通知に失敗しました: {response.status_code}, {response.content}")
 
 # ------------------------------
 # DBに記事保存
@@ -61,23 +59,24 @@ def scheduled_scrape():
     articles = scrape_websites()
     print(f"取得記事数: {len(articles)}")
 
-    for article in articles:
-        # DBに保存
-        db_article = generate_article(article["title"], article["content"])
+    for article_data in articles:
+        db_article = generate_article(article_data["title"], article_data["content"])
 
-        # HTML生成
-        article_filename = f"{db_article.id}.html"
-        article_path = os.path.join(ARTICLES_PATH, article_filename)
-        save_article_html(
-            article_id=db_article.id,
-            html_content=f"<h1>{db_article.title}</h1><p>{db_article.content}</p><a href='{AMAZON_ASSOCIATE_LINK}'>購入リンク</a>"
+        # HTML生成（完全ダイナミック）
+        article_path = os.path.join(ARTICLES_PATH, f"{db_article.id}.html")
+        html_content = generate_article_html(
+            title=db_article.title,
+            content=db_article.content,
+            affiliate_link=AMAZON_ASSOCIATE_LINK
         )
-        print("HTML保存:", article_path)
+        with open(article_path, "w", encoding="utf-8") as f:
+            f.write(html_content)
+        print(f"HTML保存: {article_path}")
 
         # Discord通知
         notify_discord(
             db_article.title,
-            f"{CLOUDFLARE_PAGES_URL}/{article_filename}"
+            f"{CLOUDFLARE_PAGES_URL}{db_article.id}"
         )
 
         # Git push
@@ -89,23 +88,12 @@ def scheduled_scrape():
             print(f"Git push エラー: {e}")
 
 # ------------------------------
-# Lifespan イベント
+# スケジューラ開始
 # ------------------------------
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    # 起動時
+@app.on_event("startup")
+def startup_event():
     scheduler.add_job(scheduled_scrape, "interval", minutes=60)
     scheduler.start()
-    print("Scheduler started")
-    yield
-    # 終了時
-    scheduler.shutdown()
-    print("Scheduler stopped")
-
-# ------------------------------
-# FastAPIアプリ
-# ------------------------------
-app = FastAPI(lifespan=lifespan)
 
 @app.get("/")
 def read_root():
@@ -119,9 +107,5 @@ def scrape_now():
     except Exception as e:
         return {"error": str(e)}
 
-# ------------------------------
-# Uvicorn起動
-# ------------------------------
 if __name__ == "__main__":
-    # 推奨: ターミナルからは uvicorn main:app --reload
-    uvicorn.run("main:app", host="127.0.0.1", port=8001, reload=True)
+    uvicorn.run(app, host="127.0.0.1", port=8001, reload=False)
