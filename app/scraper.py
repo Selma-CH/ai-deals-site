@@ -1,16 +1,22 @@
+import requests
+from bs4 import BeautifulSoup
+
 def scrape_websites():
     articles = []
 
-    # サンプル記事
-    articles.append({
-        "title": "Steamで人気ゲームがセール中",
-        "content": "今だけ人気ゲームが50%OFFで購入できます。"
-    })
+    url = "https://forest.watch.impress.co.jp/docs/bookwatch/sale/2097260.html"
+    res = requests.get(url)
+    soup = BeautifulSoup(res.text, "html.parser")
+
+    title = soup.find("h1").get_text(strip=True)
+    paragraphs = soup.select(".main-body p")
+    content = "\n".join(p.get_text(strip=True) for p in paragraphs)
+    images = [img["src"] for img in soup.select(".main-body img") if "src" in img.attrs]
 
     articles.append({
-        "title": "UdemyのAI講座が期間限定セール",
-        "content": "PythonとAI自動化を学べる講座が激安です。"
+        "title": title,
+        "content": content,
+        "images": images
     })
 
     return articles
-from app.article_html import save_article_html, update_index_html
