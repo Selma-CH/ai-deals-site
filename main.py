@@ -21,11 +21,11 @@ app = FastAPI()
 # ------------------------------
 # 設定
 # ------------------------------
-DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/xxxxx/xxxxxxxx"
+DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/xxx/yyy"
 AMAZON_ASSOCIATE_LINK = "https://amzn.to/4duD1JY"
-GIT_REPO_PATH = r"E:\ai-deals-site\.git"  # ←現在のリポジトリパスに合わせる
+GIT_REPO_PATH = r"E:\ai-deals-site\.git"  # 正しいパスに修正
 CLOUDFLARE_PAGES_URL = "https://1497f113.ai-deals-site.pages.dev"
-ARTICLES_PATH = os.path.join(os.path.dirname(__file__), "app", "articles")
+ARTICLES_PATH = os.path.join(os.path.dirname(__file__), "articles")
 
 # ------------------------------
 # スケジューラ
@@ -40,7 +40,7 @@ def notify_discord(title: str, url: str):
     webhook = DiscordWebhook(url=DISCORD_WEBHOOK_URL, content=content)
     response = webhook.execute()
     if response.status_code != 204:
-        print(f"Discord通知に失敗しました: {response}")
+        print(f"Discord通知に失敗しました: {response.status_code}, {response.content}")
 
 # ------------------------------
 # DBに記事保存
@@ -71,8 +71,10 @@ def scheduled_scrape():
         article_filename = f"{db_article.id}.html"
         article_path = os.path.join(ARTICLES_PATH, article_filename)
         save_article_html(
-            article_id=db_article.id,
-            html_content=f"<h1>{db_article.title}</h1><p>{db_article.content}</p><a href='{AMAZON_ASSOCIATE_LINK}'>購入はこちら</a>"
+            article_title=db_article.title,
+            article_content=db_article.content,
+            article_path=article_path,
+            affiliate_link=AMAZON_ASSOCIATE_LINK
         )
         print("HTML保存:", article_path)
 
@@ -82,12 +84,11 @@ def scheduled_scrape():
             f"{CLOUDFLARE_PAGES_URL}/articles/{article_filename}"
         )
 
-        # Git push（HTMLのみ）
+        # Git push
         try:
-            subprocess.run(["git", "-C", os.path.dirname(GIT_REPO_PATH), "add", "articles/"], check=True)
+            subprocess.run(["git", "-C", os.path.dirname(GIT_REPO_PATH), "add", "."], check=True)
             subprocess.run(["git", "-C", os.path.dirname(GIT_REPO_PATH), "commit", "-m", f"Add article {db_article.id}"], check=True)
             subprocess.run(["git", "-C", os.path.dirname(GIT_REPO_PATH), "push"], check=True)
-            print(f"Git push 成功: {article_filename}")
         except subprocess.CalledProcessError as e:
             print(f"Git push エラー: {e}")
 
