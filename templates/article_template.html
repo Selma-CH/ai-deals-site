@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{ article.title }}</title>
+<link rel="stylesheet" href="/static/style.css">
+<script src="/static/main.js" defer></script>
+</head>
+<body>
+<header>{{ article.title }}</header>
+<main>
+    {% for img in article.images %}
+    <img src="{{ img }}" alt="{{ article.title }}">
+    {% endfor %}
+    <article>
+        <p>{{ article.content }}</p>
+        <a href="{{ article.affiliate_link }}" target="_blank">購入はこちら</a>
+    </article>
+</main>
+<footer>
+    <a href="/summaries/index.html">記事まとめへ</a>
+</footer>
+</body>
+</html>

@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>記事まとめ</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<header>記事まとめ</header>
+<main>
+<ul>
+{% for article in all_articles %}
+    <li><a href="/articles/{{ article.id }}.html">{{ article.title }}</a></li>
+{% endfor %}
+</ul>
+</main>
+</body>
+</html>
